@@ -1,4 +1,6 @@
 // new renderer
+// V2 add header display
+// v3 add text
 
 package mdjs
 
@@ -9,40 +11,9 @@ import (
 	"github.com/gomarkdown/markdown/ast"
 //	"github.com/gomarkdown/markdown/parser"
 
-	)
+)
 
-/*
-type Renderer interface {
-	// RenderNode renders markdown node to w.
-	// It's called once for a leaf node.
-	// It's called twice for non-leaf nodes:
-	// * first with entering=true
-	// * then with entering=false
-	//
-	// Return value is a way to tell the calling walker to adjust its walk
-	// pattern: e.g. it can terminate the traversal by returning Terminate. Or it
-	// can ask the walker to skip a subtree of this node by returning SkipChildren.
-	// The typical behavior is to return GoToNext, which asks for the usual
-	// traversal to the next node.
-	RenderNode(w io.Writer, node ast.Node, entering bool) ast.WalkStatus
 
-	// RenderHeader is a method that allows the renderer to produce some
-	// content preceding the main body of the output document. The header is
-	// understood in the broad sense here. For example, the default HTML
-	// renderer will write not only the HTML document preamble, but also the
-	// table of contents if it was requested.
-	//
-	// The method will be passed an entire document tree, in case a particular
-	// implementation needs to inspect it to produce output.
-	//
-	// The output should be written to the supplied writer w. If your
-	// implementation has no header to write, supply an empty implementation.
-	RenderHeader(w io.Writer, ast ast.Node)
-
-	// RenderFooter is a symmetric counterpart of RenderHeader.
-	RenderFooter(w io.Writer, ast ast.Node)
-}
-*/
 
 type Renderer struct {
 	//Opts RendererOptions
@@ -65,29 +36,102 @@ type Renderer struct {
 //	sr *SPRenderer
 
 	documentMatter ast.DocumentMatters // keep track of front/main/back matter.
+
+	txtlev int
+
+	list [10]string
+	level int
 }
 
 
 
 func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.WalkStatus {
-
+/*
+	par := node.GetParent()
+	if par != nil {
+		children := par.GetChildren()
+		fmt.Printf("children %d\n", len(children))
+	} else {
+		fmt.Println("no children")
+	}
+*/
 	switch node := node.(type) {
 	case *ast.Text:
-		fmt.Println(" -- text")
-//		r.Text(w, node)
+		fmt.Fprintf(w,"{typ:\"txt\", txt:`%s`},\n", node.Literal);
+
 	case *ast.Softbreak:
+//		fmt.Fprintf(w,"\n")
 //		r.CR(w)
 		// TODO: make it configurable via out(renderer.softbreak)
 	case *ast.Hardbreak:
+		fmt.Fprintf(w,"{typ:\"br\"},\n")
 //		r.HardBreak(w, node)
 	case *ast.NonBlockingSpace:
+		fmt.Fprintf(w,"{typ:\"txt\", txt:\"&nbsp\"}");
 //		r.NonBlockingSpace(w, node)
 	case *ast.Emph:
-//		r.OutOneOf(w, entering, "<em>", "</em>")
+		if entering {
+			r.txtlev++
+			if r.txtlev == 1 {
+				fmt.Fprintf(w,"{typ:\"span\",style:{")
+			}
+			fmt.Fprintf(w,"fontStyle:\"italic\",")
+			ch := node.GetChildren()
+			if len(ch) == 1 {
+				switch ch[0].(type) {
+					case *ast.Text:
+					fmt.Fprintf(w,"}, ch:[")
+					default:
+				}
+			}
+		} else {
+			r.txtlev--
+			if r.txtlev == 0 {
+				fmt.Fprintf(w,"]},")
+			}
+		}
 	case *ast.Strong:
-//		r.OutOneOf(w, entering, "<strong>", "</strong>")
+		if entering {
+			r.txtlev++
+			if r.txtlev == 1 {
+				fmt.Fprintf(w,"{typ:\"span\",style:{")
+			}
+			fmt.Fprintf(w,"fontWeight:\"bold\",")
+			ch := node.GetChildren()
+			if len(ch) == 1 {
+				switch ch[0].(type) {
+					case *ast.Text:
+					fmt.Fprintf(w,"}, ch:[")
+					default:
+				}
+			}
+		} else {
+			r.txtlev--
+			if r.txtlev == 0 {
+				fmt.Fprintf(w,"]},")
+			}
+		}
 	case *ast.Del:
-//		r.OutOneOf(w, entering, "<del>", "</del>")
+		if entering {
+			r.txtlev++
+			if r.txtlev == 1 {
+				fmt.Fprintf(w,"{typ:\"span\",style:{")
+			}
+			fmt.Fprintf(w,"textDecoration:\"line-through\",")
+			ch := node.GetChildren()
+			if len(ch) == 1 {
+				switch ch[0].(type) {
+					case *ast.Text:
+					fmt.Fprintf(w,"}, ch:[")
+					default:
+				}
+			}
+		} else {
+			r.txtlev--
+			if r.txtlev == 0 {
+				fmt.Fprintf(w,"]},")
+			}
+		}
 	case *ast.BlockQuote:
 //		tag := TagWithAttributes("<blockquote", BlockAttrs(node))
 //		r.OutOneOfCr(w, entering, tag, "</blockquote>")
@@ -95,6 +139,15 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 //		tag := TagWithAttributes("<aside", BlockAttrs(node))
 //		r.OutOneOfCr(w, entering, tag, "</aside>")
 	case *ast.Link:
+		if entering {
+			r.level++
+			r.list[r.level] = "lel"
+			fmt.Fprintf(w,"{typ:\"a\",href:\"%s\",ch:[\n",node.Destination)
+		} else {
+			r.level--
+			fmt.Fprintf(w,"]},\n")
+		}
+
 //		r.Link(w, node, entering)
 	case *ast.CrossReference:
 //		link := &ast.Link{Destination: append([]byte("#"), node.Destination...)}
@@ -118,27 +171,57 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 		// do nothing
 	case *ast.Paragraph:
 		if entering {
-			fmt.Println("-- par start")
+			r.level++
+			r.list[r.level] = "pel"
+			fmt.Fprintf(w,"{typ:\"p\",ch:[\n")
 		} else {
-			fmt.Println("-- par end")
+			fmt.Fprintf(w,"{typ:\"txt\", txt:`\n`},");
+			fmt.Fprintf(w,"]},\n")
+			r.level--
 		}
 //		r.Paragraph(w, node, entering)
 	case *ast.HTMLSpan:
+		fmt.Fprintf(w,"{typ:\"span\",")
+//			fmt.Fprintf(w, "hel.id = \"%s\";\n", node.HeadingID)
+		fmt.Fprintf(w, "txt:`%s`}\n,", node.Literal)
+
 //		r.HTMLSpan(w, node)
 	case *ast.HTMLBlock:
 //		r.HTMLBlock(w, node)
 	case *ast.Heading:
 		if entering {
-			fmt.Println("-- heading start")
+			r.level++
+			r.list[r.level] = "hel"
+			fmt.Fprintf(w,"{typ:\"h%d\",", node.Level)
+			fmt.Fprintf(w, "id:\"%s\",", node.HeadingID)
+			fmt.Fprintf(w, "ch:[\n")
 		} else {
-			fmt.Println("-- heading end")
+			fmt.Fprintf(w,"]},\n")
+			r.level--
 		}
-//		r.Heading(w, node, entering)
+
 	case *ast.HorizontalRule:
 //		r.HorizontalRule(w, node)
 	case *ast.List:
+		if entering {
+			r.level++
+//fmt.Printf("dbg -- list: %v %d\n", node.ListFlags, ast.ListTypeOrdered)
+			if ast.ListTypeOrdered == 1 {
+				r.list[r.level] = "ol"
+				fmt.Fprintf(w,"{typ:\"ol\",ch:[\n")
+			} else {
+				r.list[r.level] = "ul"
+				fmt.Fprintf(w,"{typ:\"ul\",ch:[\n")
+			}
+
+		} else {
+			fmt.Fprintf(w,"]},\n")
+			r.level--
+		}
 //		r.List(w, node, entering)
 	case *ast.ListItem:
+		fmt.Fprintf(w,"{typ:\"li\",ch:[\n")
+
 //		r.ListItem(w, node, entering)
 	case *ast.Table:
 //		tag := TagWithAttributes("<table", BlockAttrs(node))
@@ -169,17 +252,17 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 	case *ast.Index:
 //		r.Index(w, node)
 	case *ast.Subscript:
-//		r.OutOneOf(w, true, "<sub>", "</sub>")
-//		if entering {
-//			Escape(w, node.Literal)
-//		}
-//		r.OutOneOf(w, false, "<sub>", "</sub>")
+		if entering {
+//			r.txtattr = "sub"
+		} else {
+//			r.txtattr = ""
+		}
 	case *ast.Superscript:
-//		r.OutOneOf(w, true, "<sup>", "</sup>")
-//		if entering {
-//			Escape(w, node.Literal)
-//		}
-//		r.OutOneOf(w, false, "<sup>", "</sup>")
+		if entering {
+//			r.txtattr = "sup"
+		} else {
+//			r.txtattr = ""
+		}
 	case *ast.Footnotes:
 		// nothing by default; just output the list.
 	default:
@@ -190,13 +273,17 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 }
 
 func (r *Renderer) RenderHeader(w io.Writer, ast ast.Node) {
-
+	fmt.Fprintf(w,"const frag= {typ:\"frag\",ch:[\n")
+	r.list[0] = "frag"
+	r.level = 0
+//	fmt.Fprintf(w, "{\"doc\":[\n")
 	return
 }
 
 
 func (r *Renderer) RenderFooter(w io.Writer, ast ast.Node) {
-
+	
+	fmt.Fprintf(w,"],};\n")
 	return
 }
 
