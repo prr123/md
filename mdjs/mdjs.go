@@ -64,7 +64,7 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 //		r.CR(w)
 		// TODO: make it configurable via out(renderer.softbreak)
 	case *ast.Hardbreak:
-		fmt.Fprintf(w,"{typ:\"br\"},\n")
+		fmt.Fprintf(w,"{typ:\"br\", ch:[]},\n")
 //		r.HardBreak(w, node)
 	case *ast.NonBlockingSpace:
 		fmt.Fprintf(w,"{typ:\"txt\", txt:\"&nbsp\"}");
@@ -133,13 +133,12 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 			}
 		}
 	case *ast.BlockQuote:
+//		fmt.Fprintf(w,"{typ:\"br\"},\n")
 		if entering {
-			fmt.Fprintf(w,"{typ:\"BLOCKQUOTE\", ch:[")
+			fmt.Fprintf(w,"{typ:\"BLOCKQUOTE\", style:{padding:\"50px 30px 50px 30px\"}, ch:[")
 		} else {
-			fmt.Fprintf(w,"]},")
+			fmt.Fprintf(w,"]},\n")
 		}
-//		tag := TagWithAttributes("<blockquote", BlockAttrs(node))
-//		r.OutOneOfCr(w, entering, tag, "</blockquote>")
 	case *ast.Aside:
 //		tag := TagWithAttributes("<aside", BlockAttrs(node))
 //		r.OutOneOfCr(w, entering, tag, "</aside>")
@@ -206,6 +205,8 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 		}
 
 	case *ast.HorizontalRule:
+		fmt.Fprintf(w,"{typ:\"hr\", ch:[]},")
+
 //		r.HorizontalRule(w, node)
 	case *ast.List:
 		if entering {
@@ -225,8 +226,11 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 		}
 //		r.List(w, node, entering)
 	case *ast.ListItem:
-		fmt.Fprintf(w,"{typ:\"li\",ch:[\n")
-
+		if entering {
+			fmt.Fprintf(w,"{typ:\"li\",ch:[\n")
+		} else {
+			fmt.Fprintf(w,"]},\n")
+		}
 //		r.ListItem(w, node, entering)
 	case *ast.Table:
 //		tag := TagWithAttributes("<table", BlockAttrs(node))
