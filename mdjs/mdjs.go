@@ -133,6 +133,11 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 			}
 		}
 	case *ast.BlockQuote:
+		if entering {
+			fmt.Fprintf(w,"{typ:\"BLOCKQUOTE\", ch:[")
+		} else {
+			fmt.Fprintf(w,"]},")
+		}
 //		tag := TagWithAttributes("<blockquote", BlockAttrs(node))
 //		r.OutOneOfCr(w, entering, tag, "</blockquote>")
 	case *ast.Aside:
