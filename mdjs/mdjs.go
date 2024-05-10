@@ -9,8 +9,6 @@ import (
 	"io"
 
 	"github.com/gomarkdown/markdown/ast"
-//	"github.com/gomarkdown/markdown/parser"
-
 )
 
 
@@ -45,6 +43,7 @@ type Renderer struct {
 	nest int
 	nestPar [10]bool
 	nestTyp [10]byte
+	tcel string
 }
 
 
@@ -164,6 +163,7 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 	case *ast.Citation:
 //		r.Citation(w, node)
 	case *ast.Image:
+
 //		if r.Opts.Flags&SkipImages != 0 {
 //			return ast.SkipChildren
 //		}
@@ -171,8 +171,10 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 	case *ast.Code:
 //		r.Code(w, node)
 	case *ast.CodeBlock:
+
 //		r.CodeBlock(w, node)
 	case *ast.Caption:
+
 //		r.Caption(w, node, entering)
 	case *ast.CaptionFigure:
 //		r.CaptionFigure(w, node, entering)
@@ -193,12 +195,10 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 				r.level--
 			}
 		}
-//		r.Paragraph(w, node, entering)
+
 	case *ast.HTMLSpan:
 		fmt.Fprintf(w,"{typ:\"span\",")
-//			fmt.Fprintf(w, "hel.id = \"%s\";\n", node.HeadingID)
 		fmt.Fprintf(w, "txt:`%s`}\n,", node.Literal)
-
 //		r.HTMLSpan(w, node)
 	case *ast.HTMLBlock:
 //		r.HTMLBlock(w, node)
@@ -216,14 +216,13 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 
 	case *ast.HorizontalRule:
 		fmt.Fprintf(w,"{typ:\"hr\", ch:[]},")
-
 //		r.HorizontalRule(w, node)
-	case *ast.List:
 
+	case *ast.List:
 		if entering {
 			r.level++
 			t := node.ListFlags&ast.ListTypeOrdered >0
-fmt.Printf("dbg -- list: %v %t tight: %t nest: %d\n", node.ListFlags, t, node.Tight, r.nest)
+//fmt.Printf("dbg -- list: %v %t tight: %t nest: %d\n", node.ListFlags, t, node.Tight, r.nest)
 			r.nest++
 			listStylDesc := fmt.Sprintf("marginLeft:\"%dpx\"",+(r.nest-1)*10)
 			if t {
@@ -261,18 +260,51 @@ fmt.Printf("dbg -- list: %v %t tight: %t nest: %d\n", node.ListFlags, t, node.Ti
 		}
 //		r.ListItem(w, node, entering)
 	case *ast.Table:
+//fmt.Printf("dbg --- table\n")
+		if entering {
+			tabStyl:="borderCollapse:\"collapse\" ,borderSpacing:\"0px\", width:\"80%%\",marginLeft:\"auto\", marginRight:\"auto\""
+			fmt.Fprintf(w,"{typ:\"table\", style:{%s}, ch:[", tabStyl)
+		} else {
+			fmt.Fprintf(w,"]},\n")
+		}
+
 //		tag := TagWithAttributes("<table", BlockAttrs(node))
 //		r.OutOneOfCr(w, entering, tag, "</table>")
 	case *ast.TableCell:
+//fmt.Printf("dbg --- table cell\n")
+		if entering {
+			fmt.Fprintf(w,"{typ:\"%s\", style:{border:\"2px solid black\", padding:\"20px\"}, ch:[", r.tcel)
+		} else {
+			fmt.Fprintf(w,"]},\n")
+		}
 //		r.TableCell(w, node, entering)
 	case *ast.TableHeader:
+		if entering {
+			r.tcel = "th"
+		}
+//fmt.Printf("dbg --- table header\n")
+
 //		r.OutOneOfCr(w, entering, "<thead>", "</thead>")
 	case *ast.TableBody:
+//fmt.Printf("dbg --- table body\n")
 //		r.TableBody(w, node, entering)
+		r.tcel = ""
+		if entering {
+			r.tcel = "td"
+		}
 	case *ast.TableRow:
+//fmt.Printf("dbg --- table row\n")
+		if entering {
+			fmt.Fprintf(w,"{typ:\"tr\", ch:[")
+		} else {
+			fmt.Fprintf(w,"]},\n")
+		}
 //		r.OutOneOfCr(w, entering, "<tr>", "</tr>")
 	case *ast.TableFooter:
+//fmt.Printf("dbg --- table footer\n")
 //		r.OutOneOfCr(w, entering, "<tfoot>", "</tfoot>")
+
+
 	case *ast.Math:
 //		r.OutOneOf(w, true, `<span class="math inline">\(`, `\)</span>`)
 //		EscapeHTML(w, node.Literal)
