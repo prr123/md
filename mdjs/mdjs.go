@@ -41,6 +41,10 @@ type Renderer struct {
 
 	list [10]string
 	level int
+	skipPar bool
+	nest int
+	nestPar [10]bool
+	nestTyp [10]byte
 }
 
 
@@ -55,6 +59,7 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 		fmt.Println("no children")
 	}
 */
+
 	switch node := node.(type) {
 	case *ast.Text:
 		fmt.Fprintf(w,"{typ:\"txt\", txt:`%s`},\n", node.Literal);
@@ -174,14 +179,19 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 	case *ast.Document:
 		// do nothing
 	case *ast.Paragraph:
+	fmt.Printf("dbg -- par: %t\n", r.skipPar)
 		if entering {
-			r.level++
-			r.list[r.level] = "pel"
-			fmt.Fprintf(w,"{typ:\"p\",ch:[\n")
+			if !r.skipPar {
+				r.level++
+				r.list[r.level] = "pel"
+				fmt.Fprintf(w,"{typ:\"p\",ch:[\n")
+			}
 		} else {
-			fmt.Fprintf(w,"{typ:\"txt\", txt:`\n`},");
-			fmt.Fprintf(w,"]},\n")
-			r.level--
+			if !r.skipPar {
+				fmt.Fprintf(w,"{typ:\"txt\", txt:`\n`},");
+				fmt.Fprintf(w,"]},\n")
+				r.level--
+			}
 		}
 //		r.Paragraph(w, node, entering)
 	case *ast.HTMLSpan:
@@ -209,26 +219,44 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 
 //		r.HorizontalRule(w, node)
 	case *ast.List:
+
 		if entering {
 			r.level++
-//fmt.Printf("dbg -- list: %v %d\n", node.ListFlags, ast.ListTypeOrdered)
-			if ast.ListTypeOrdered == 1 {
+			t := node.ListFlags&ast.ListTypeOrdered >0
+fmt.Printf("dbg -- list: %v %t tight: %t nest: %d\n", node.ListFlags, t, node.Tight, r.nest)
+			r.nest++
+			listStylDesc := fmt.Sprintf("marginLeft:\"%dpx\"",+(r.nest-1)*10)
+			if t {
 				r.list[r.level] = "ol"
-				fmt.Fprintf(w,"{typ:\"ol\",ch:[\n")
+				r.nestTyp[r.nest] = 'o'
+				fmt.Fprintf(w,"{typ:\"ol\",style:{%s},ch:[\n", listStylDesc)
 			} else {
 				r.list[r.level] = "ul"
-				fmt.Fprintf(w,"{typ:\"ul\",ch:[\n")
+				r.nestTyp[r.nest] = 'u'
+				fmt.Fprintf(w,"{typ:\"ul\", style:{%s},ch:[\n", listStylDesc)
 			}
-
+			r.nestPar[r.nest] = false
+			if node.Tight {r.nestPar[r.nest] = true}
 		} else {
 			fmt.Fprintf(w,"]},\n")
 			r.level--
+			r.nestPar[r.nest] = false
+			r.nestTyp[r.nest] = ' '
+			r.nest--
 		}
 //		r.List(w, node, entering)
 	case *ast.ListItem:
+		bulStylDesc := ""
 		if entering {
-			fmt.Fprintf(w,"{typ:\"li\",ch:[\n")
+			if r.nestPar[r.nest] {r.skipPar = true}
+			if r.nestTyp[r.nest] == 'o' {bulStylDesc = "listStyleType:\"decimal\""}
+			if r.nestTyp[r.nest] == 'u' {
+				bulStylDesc = "listStyleType:\"disc\""
+				if r.nest%2 == 0 {bulStylDesc = "listStyleType:\"circle\""}
+			}
+			fmt.Fprintf(w,"{typ:\"li\", style:{%s}, ch:[\n", bulStylDesc)
 		} else {
+			r.skipPar = false
 			fmt.Fprintf(w,"]},\n")
 		}
 //		r.ListItem(w, node, entering)
@@ -282,8 +310,8 @@ func (r *Renderer) RenderNode(w io.Writer, node ast.Node, entering bool) ast.Wal
 }
 
 func (r *Renderer) RenderHeader(w io.Writer, ast ast.Node) {
-	fmt.Fprintf(w,"const frag= {typ:\"frag\",ch:[\n")
-	r.list[0] = "frag"
+	fmt.Fprintf(w,"const frag= {typ:\"div\", style:{margin:\"20px\", listStylePosition: \"inside\",},ch:[\n")
+	r.list[0] = "div"
 	r.level = 0
 //	fmt.Fprintf(w, "{\"doc\":[\n")
 	return
